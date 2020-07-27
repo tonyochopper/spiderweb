@@ -1,0 +1,94 @@
+for kvalue = 18:20
+    mse = [];
+for freehand = 1+(kvalue-1)*20:10+(kvalue-1)*20
+    file = ['20190818_k_dvalue\normal\50 60 1 100\20190819normal_',num2str(freehand),'.mat'];
+data.k_lim = [50+(kvalue-1)*10 60+(kvalue-1)*10;1 100];  
+data.d_lim = [50+(kvalue-1)*10 60+(kvalue-1)*10;1 100];
+net.W.k1   = rand_in_range_exp(data.k_lim(2,:),data.w_idx); % random spring constants
+net.W.k3   = rand_in_range_exp(data.k_lim(1,:),data.w_idx); % random spring constants
+net.W.d1   = rand_in_range_exp(data.d_lim(2,:),data.w_idx); % random damping constants
+net.W.d3   = rand_in_range_exp(data.d_lim(1,:),data.w_idx); % random damping constants
+%% loading data and trainning
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% loading data
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+load('data_Volterra/volterra3.mat');
+ 
+% prepare learning data
+wash_out = 200000;
+start = 220000-wash_out; 
+len = 400000+start;
+len_test = 15000;
+U = dat.u(start:len,1);  
+Y = dat.yn(start:len,1); % using normalized data
+Y = dat.y(start:len,1);
+un = (mapstd(U'))';
+yn = (mapstd(Y'))';
+
+% prepare testing data
+U_test = dat.u(len+1:len+len_test,1);  
+Y_test = dat.yn(len+1:len+len_test,1); % using normalized data
+un_test = (mapstd(U_test'))';
+yn_test = (mapstd(Y_test'))';
+
+ 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%  simulating net 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+[net2,sim_data] = simulate_ms_sys(net,U);
+ 
+% learn output weights with linear regression
+if (strcmp(net.readout_type,'LENGTHS'))
+	X = sim_data.D(wash_out:end,:);  % throw first 100 steps away
+else
+	X = sim_data.Sx(wash_out:end,:);  % throw first 100 steps away
+end
+
+Yw = Y(wash_out:end,:);
+
+W_out=X\Yw; % calculate optimal weights
+
+
+net_test = net2;
+net_test.W_out = W_out;
+o = X*W_out;
+
+% in case you want to test how good the weights 
+% represent the learnign dat
+% figure;plot(o); hold on;plot(Yw,'r')
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% testing
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+[net_test_out,sim_data_test] = simulate_ms_sys(net_test,U_test);
+
+
+
+% plot results
+figure;plot(yn_test,'r','LineWidth',1);
+hold on;plot((mapstd(sim_data_test.O'))','--','LineWidth',1);
+f1=gcf;a1=gca;
+set(a1,'FontSize',14);
+xlabel('timestep [ ]');
+ylabel('[ ]');
+title('Performance comparison')
+legend('target output','system output')
+
+
+% caculate and print MSE
+disp(['MSE: ',num2str(mean_squared_error(yn_test,(mapstd(sim_data_test.O'))'))])
+mse=[mse;mean_squared_error(yn_test,(mapstd(sim_data_test.O'))')];
+
+%plot_graph(net_test)
+save(file)
+end
+file2 = ['20190818_k_dvalue\normal\50 60 1 100\normal_MSE_',num2str(kvalue),'.mat'];
+save(file2,'mse');
+
+% plot the structure of the used network
+
+
+end
