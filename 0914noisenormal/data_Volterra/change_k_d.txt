@@ -1,0 +1,6 @@
+data.k_lim = [100 200;1 100];  
+data.d_lim = [100 200;1 100];
+net.W.k1   = rand_in_range_exp(data.k_lim(2,:),data.w_idx); % random spring constants
+net.W.k3   = rand_in_range_exp(data.k_lim(1,:),data.w_idx); % random spring constants
+net.W.d1   = rand_in_range_exp(data.d_lim(2,:),data.w_idx); % random damping constants
+net.W.d3   = rand_in_range_exp(data.d_lim(1,:),data.w_idx); % random damping constants
